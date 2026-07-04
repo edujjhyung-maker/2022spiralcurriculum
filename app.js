@@ -25,6 +25,12 @@
     const same=all.filter(c=>STANDARDS[c].band===self.band).sort(byBand);
     return diff.concat(same).slice(0,5).sort(byBand);
   }
+  function explicitRefsOf(code){
+    const out=new Set((C.refs&&C.refs[code])||[]);
+    if(C.refs){for(const k in C.refs){ if((C.refs[k]||[]).includes(code)) out.add(k); }}
+    out.delete(code);
+    return [...out];
+  }
   function escapeHtml(x){return x.replace(/[&<>]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[m]));}
   function strip(html){return html.replace(/<[^>]+>/g,"");}
   function highlight(code){const s=STANDARDS[code];let html=escapeHtml(s.text);(s.kw||[]).forEach(([term,type])=>{html=html.replace(term,`<span class="kw ${type}">${term}</span>`);});return html;}
@@ -109,7 +115,9 @@
     </div>`;
     const ch=chainOf(code);
     if(!ch){
-      const refs=relatedRefs(code);
+      let refs=relatedRefs(code);
+      const _exSolo=explicitRefsOf(code).filter(c=>STANDARDS[c]&&c!==code&&!refs.includes(c));
+      refs=refs.concat(_exSolo);
       if(refs.length){
         // 직접 위계는 없지만 같은 계통(strand)의 참고 연계를 표시
         const st=strandOf(code);
@@ -143,6 +151,14 @@
       if(i<ch.spine.length-1){const key=sc+">"+ch.spine[i+1];const link=ch.links&&ch.links[key]?ch.links[key]:{note:""};html+=connHTML(link);}
     });
     html+=`</div>`;
+    const _exChain=explicitRefsOf(code).filter(c=>STANDARDS[c]&&!ch.spine.includes(c));
+    if(_exChain.length){
+      const _B={"1-2":0,"3-4":1,"5-6":2};
+      _exChain.sort((a,b)=>(_B[STANDARDS[a].band]-_B[STANDARDS[b].band])||(a<b?-1:1));
+      html+=`<div class="ref-divider">참고 연계</div><div class="chain">`;
+      _exChain.forEach(rc=>{ html+=`<div class="reveal"><span class="ref-chip">참고 · ${BAND_LABEL[STANDARDS[rc].band]}</span>${nodeHTML(rc,"ctx refnode")}</div>`; });
+      html+=`</div>`;
+    }
     html+=`<div class="legend">
       <span class="li"><span class="kw red">키워드</span> 핵심 개념</span>
       <span class="li"><span class="kw blue">키워드</span> 글의 종류·행동</span>
